@@ -23,6 +23,17 @@ THRESHOLD = 0.42  # Optimal threshold for current model (tested on real data)
 # Global model variable
 model = None
 
+def load_model():
+    global model
+    print("Loading model...")
+    try:
+        model = keras.models.load_model(MODEL_WEIGHTS_PATH, compile=False)
+        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        print("Model loaded successfully!")
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        raise
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -157,8 +168,9 @@ def predict():
 
     return jsonify({'error': 'Invalid file type'}), 400
 
+load_model()
+
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    load_model()
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
