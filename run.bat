@@ -4,7 +4,7 @@ echo Starting Face Detector...
 echo ========================================
 echo.
 
-if not exist "venv\Scripts\activate.bat" (
+if not exist "venv\Scripts\python.exe" (
     echo Error: Virtual environment not found!
     echo Please run setup.bat first.
     pause
@@ -31,4 +31,5 @@ echo.
 echo Press Ctrl+C to stop
 echo.
 
-python app.py
+venv\Scripts\python.exe app.py
+pause

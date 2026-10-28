@@ -4,19 +4,23 @@ echo Real vs Fake Face Detector - Setup
 echo ========================================
 echo.
 
-echo [1/3] Creating virtual environment...
-python -m venv venv
-if errorlevel 1 (
-    echo Error: Failed to create virtual environment
-    pause
-    exit /b 1
+if not exist "venv\Scripts\python.exe" (
+    echo [1/3] Creating virtual environment...
+    python -m venv --clear venv
+    if errorlevel 1 (
+        echo Error: Failed to create virtual environment
+        pause
+        exit /b 1
+    )
+) else (
+    echo [1/3] Virtual environment found.
 )
 
 echo [2/3] Activating virtual environment...
 call venv\Scripts\activate.bat
 
 echo [3/3] Installing dependencies...
-pip install -r requirements.txt
+venv\Scripts\python.exe -m pip install -r requirements.txt
 if errorlevel 1 (
     echo Error: Failed to install dependencies
     pause
