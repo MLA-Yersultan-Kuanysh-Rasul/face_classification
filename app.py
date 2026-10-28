@@ -1,4 +1,5 @@
 import os
+import uuid
 import numpy as np
 from flask import Flask, render_template, request, jsonify
 from werkzeug.utils import secure_filename
@@ -9,30 +10,23 @@ from tensorflow.keras.applications import MobileNetV2
 from PIL import Image
 import h5py
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Model parameters
 IMG_SIZE = (128, 128)  # CRITICAL: Must match training size!
 CLASS_NAMES = ["fake", "real"]
-MODEL_WEIGHTS_PATH = "model/best_model.h5"
+MODEL_WEIGHTS_PATH = os.path.join(BASE_DIR, "model", "best_model.h5")
 THRESHOLD = 0.42  # Optimal threshold for current model (tested on real data)
 
 # Global model variable
 model = None
-
-def load_model():
-    global model
-    print("Loading model...")
-    try:
-        model = keras.models.load_model(MODEL_WEIGHTS_PATH, compile=False)
-        model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-        print("Model loaded successfully!")
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        raise
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -111,11 +105,16 @@ def load_model():
 
 def preprocess_image(image_path):
     """Preprocess image for prediction."""
-    img = Image.open(image_path).convert('RGB')
-    img = img.resize(IMG_SIZE)
-    img_array = np.array(img)
+    with Image.open(image_path) as img:
+        img = img.convert('RGB')
+        img = img.resize(IMG_SIZE)
+        img_array = np.array(img)
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({'error': 'File size exceeds maximum limit of 16MB'}), 413
 
 @app.route('/')
 def index():
@@ -132,7 +131,10 @@ def predict():
         return jsonify({'error': 'No file selected'}), 400
 
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
+        ext = file.filename.rsplit('.', 1)[1].lower()
+        safe_name = secure_filename(file.filename.rsplit('.', 1)[0])
+        filename = f"{uuid.uuid4().hex}_{safe_name}.{ext}" if safe_name else f"{uuid.uuid4().hex}.{ext}"
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
 
@@ -151,9 +153,6 @@ def predict():
             # Confidence is the probability of the predicted class
             confidence = real_prob if predicted_class == "real" else fake_prob
 
-            # Clean up uploaded file
-            os.remove(filepath)
-
             return jsonify({
                 'prediction': predicted_class,
                 'confidence': float(confidence),
@@ -162,9 +161,15 @@ def predict():
             })
 
         except Exception as e:
-            if os.path.exists(filepath):
-                os.remove(filepath)
             return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
+
+        finally:
+            # Clean up uploaded file
+            if os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except OSError:
+                    pass
 
     return jsonify({'error': 'Invalid file type'}), 400
 

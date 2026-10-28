@@ -15,7 +15,13 @@ const newAnalysisBtn = document.getElementById('newAnalysisBtn');
 const retryBtn = document.getElementById('retryBtn');
 
 // Click to browse
-browseBtn.addEventListener('click', () => fileInput.click());
+browseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fileInput.click();
+});
+fileInput.addEventListener('click', (e) => {
+    e.stopPropagation();
+});
 uploadArea.addEventListener('click', () => fileInput.click());
 
 // File input change
@@ -43,7 +49,9 @@ uploadArea.addEventListener('drop', (e) => {
 
 // Handle file selection
 function handleFile(file) {
-    if (!file.type.match('image.*')) {
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    const validExtension = /\.(png|jpe?g)$/i.test(file.name);
+    if (!allowedTypes.includes(file.type) && !validExtension) {
         showError('Please select a valid image file (PNG, JPG, JPEG)');
         return;
     }
